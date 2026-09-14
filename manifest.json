@@ -1,0 +1,239 @@
+{
+  "id": "crypto",
+  "name": "Crypto Prices",
+  "version": "1.0.0",
+  "description": "Display live cryptocurrency prices and 24h changes from CoinGecko",
+  "author": "FiestaBoard Team",
+  "repository": "https://github.com/Fiestaboard/fiestaboard-plugin--crypto",
+  "documentation": "README.md",
+  "icon": "coins",
+  "category": "data",
+  "min_refresh_seconds": 60,
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "title": "Enable Crypto Prices",
+        "default": false
+      },
+      "coins": {
+        "type": "string",
+        "title": "Coins",
+        "description": "Comma-separated CoinGecko coin ids (max 10), e.g. bitcoin,ethereum,solana",
+        "default": "bitcoin,ethereum,solana"
+      },
+      "currency": {
+        "type": "string",
+        "title": "Currency",
+        "description": "3-letter quote currency (e.g. usd, eur, gbp)",
+        "default": "usd",
+        "minLength": 3,
+        "maxLength": 3
+      },
+      "api_key": {
+        "type": "string",
+        "title": "CoinGecko Demo API Key (Optional)",
+        "description": "Raises the free rate limit. Sent as the x-cg-demo-api-key header.",
+        "ui:widget": "password"
+      },
+      "refresh_seconds": {
+        "type": "integer",
+        "title": "Refresh Interval (seconds)",
+        "description": "How often to fetch prices. CoinGecko's free tier allows roughly 30 requests/minute, so keep this at 60 or above.",
+        "default": 300,
+        "minimum": 60,
+        "maximum": 3600
+      }
+    }
+  },
+  "env_vars": [
+    {
+      "name": "CRYPTO_ENABLED",
+      "required": false,
+      "description": "Enable crypto prices feature",
+      "default": "false"
+    },
+    {
+      "name": "COINGECKO_API_KEY",
+      "required": false,
+      "description": "Optional CoinGecko demo API key"
+    }
+  ],
+  "variables": {
+    "groups": {
+      "market": {
+        "label": "Market Data"
+      },
+      "display": {
+        "label": "Display"
+      }
+    },
+    "simple": {
+      "symbol": {
+        "description": "First coin ticker symbol",
+        "type": "string",
+        "max_length": 4,
+        "group": "market",
+        "example": "BTC"
+      },
+      "price": {
+        "description": "First coin price, formatted",
+        "type": "string",
+        "max_length": 10,
+        "group": "market",
+        "example": "77,679"
+      },
+      "change_24h": {
+        "description": "First coin 24h change in percent, signed (append % in your template)",
+        "type": "string",
+        "max_length": 6,
+        "group": "market",
+        "example": "+0.6"
+      },
+      "change_sign": {
+        "description": "Direction of the first coin's 24h change",
+        "type": "string",
+        "max_length": 1,
+        "group": "market",
+        "example": "+"
+      },
+      "formatted": {
+        "description": "Pre-formatted line for the first coin: symbol, price, change",
+        "type": "string",
+        "max_length": 22,
+        "group": "display",
+        "example": "BTC      77,679  +0.6%"
+      },
+      "count": {
+        "description": "Number of coins with price data",
+        "type": "number",
+        "max_length": 2,
+        "group": "display",
+        "example": "3"
+      }
+    },
+    "arrays": {
+      "coins": {
+        "label_field": "symbol",
+        "item_fields": [
+          "id",
+          "symbol",
+          "name",
+          "price",
+          "change_24h",
+          "change_sign",
+          "formatted"
+        ]
+      }
+    }
+  },
+  "max_lengths": {
+    "coins.*.symbol": 4,
+    "coins.*.price": 10,
+    "coins.*.change_24h": 6,
+    "coins.*.formatted": 22
+  },
+  "color_rules_schema": {
+    "change_24h": {
+      "type": "threshold",
+      "description": "Color based on 24h price change",
+      "default_rules": [
+        {
+          "condition": ">=",
+          "value": 0,
+          "color": "green"
+        },
+        {
+          "condition": "<",
+          "value": 0,
+          "color": "red"
+        }
+      ]
+    }
+  },
+  "fiestaboard_version": ">=2.10.0",
+  "teaser": "BTC 77,679 {66}",
+  "previews": [
+    {
+      "device_type": "flagship",
+      "rows": [
+        "        CRYPTO",
+        "BTC      77,679  +0.6%",
+        "ETH       2,513  -0.3%",
+        "SOL       84.10  +2.1%",
+        "DOGE     0.1234  -1.4%",
+        "ADA      0.3921  +0.8%"
+      ]
+    },
+    {
+      "device_type": "note",
+      "rows": [
+        "CRYPTO",
+        "BTC      77,679",
+        "ETH       2,513"
+      ]
+    }
+  ],
+  "demo": {
+    "flagship": {
+      "name": "Crypto Prices Demo",
+      "template": [
+        "CRYPTO",
+        "{{crypto.coins.0.formatted}}",
+        "{{crypto.coins.1.formatted}}",
+        "{{crypto.coins.2.formatted}}",
+        "{{crypto.coins.3.formatted}}",
+        "{{crypto.coins.4.formatted}}"
+      ],
+      "line_metadata": [
+        {
+          "alignment": "center",
+          "wrap": false
+        },
+        {
+          "alignment": "left",
+          "wrap": false
+        },
+        {
+          "alignment": "left",
+          "wrap": false
+        },
+        {
+          "alignment": "left",
+          "wrap": false
+        },
+        {
+          "alignment": "left",
+          "wrap": false
+        },
+        {
+          "alignment": "left",
+          "wrap": false
+        }
+      ]
+    },
+    "note": {
+      "name": "Crypto Prices (Note)",
+      "template": [
+        "CRYPTO",
+        "{{crypto.coins.0.symbol}} {{crypto.coins.0.price}}",
+        "{{crypto.coins.1.symbol}} {{crypto.coins.1.price}}"
+      ],
+      "line_metadata": [
+        {
+          "alignment": "left",
+          "wrap": false
+        },
+        {
+          "alignment": "left",
+          "wrap": false
+        },
+        {
+          "alignment": "left",
+          "wrap": false
+        }
+      ]
+    }
+  }
+}
