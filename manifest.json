@@ -175,6 +175,14 @@
       ]
     }
   ],
+  "screenshots": [
+    {
+      "src": "docs/board-display.png",
+      "alt": "Crypto Prices displayed on a Vestaboard",
+      "caption": "Display live cryptocurrency prices and 24h changes from CoinGecko",
+      "primary": true
+    }
+  ],
   "demo": {
     "flagship": {
       "name": "Crypto Prices Demo",

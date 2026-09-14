@@ -8,6 +8,8 @@ Display live cryptocurrency prices and 24-hour changes from the [CoinGecko](http
 
 The Crypto Prices plugin fetches current prices and 24h percentage changes for up to 10 coins from CoinGecko's free public API and displays them on your board. No API key is required.
 
+![Crypto Prices Display](./docs/board-display.png)
+
 Default display:
 
 ```
