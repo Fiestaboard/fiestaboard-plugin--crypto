@@ -1,7 +1,7 @@
 {
   "id": "crypto",
   "name": "Crypto Prices",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Display live cryptocurrency prices and 24h changes from CoinGecko",
   "author": "FiestaBoard Team",
   "repository": "https://github.com/Fiestaboard/fiestaboard-plugin--crypto",
@@ -20,7 +20,7 @@
       "coins": {
         "type": "string",
         "title": "Coins",
-        "description": "Comma-separated CoinGecko coin ids (max 10), e.g. bitcoin,ethereum,solana",
+        "description": "Comma-separated CoinGecko coin ids (max 23), e.g. bitcoin,ethereum,solana",
         "default": "bitcoin,ethereum,solana"
       },
       "currency": {
@@ -99,9 +99,9 @@
         "example": "+"
       },
       "formatted": {
-        "description": "Pre-formatted line for the first coin: symbol, price, change",
+        "description": "Pre-formatted line for the first coin: symbol (or full name on wider boards), price, change. Width scales with the board.",
         "type": "string",
-        "max_length": 22,
+        "max_length": 120,
         "group": "display",
         "example": "BTC      77,679  +0.6%"
       },
@@ -132,7 +132,7 @@
     "coins.*.symbol": 4,
     "coins.*.price": 10,
     "coins.*.change_24h": 6,
-    "coins.*.formatted": 22
+    "coins.*.formatted": 120
   },
   "color_rules_schema": {
     "change_24h": {
@@ -172,6 +172,20 @@
         "CRYPTO",
         "BTC      77,679",
         "ETH       2,513"
+      ]
+    },
+    {
+      "label": "Note Array (2x2)",
+      "device_type": "note_array",
+      "notes_wide": 2,
+      "notes_tall": 2,
+      "rows": [
+        "            CRYPTO",
+        "Bitcoin          77,679  +0.6%",
+        "Ethereum          2,513  -0.3%",
+        "Solana            84.10  +2.1%",
+        "Dogecoin         0.1234  -1.4%",
+        "Cardano          0.3921  +0.8%"
       ]
     }
   ],

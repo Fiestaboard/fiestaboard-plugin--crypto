@@ -7,14 +7,21 @@ from unittest.mock import Mock, patch
 import pytest
 
 from plugins.crypto import (
+    MAX_COINS,
     CryptoPlugin,
     Plugin,
     coin_name,
     coin_symbol,
     format_change,
     format_price,
+    format_row,
     parse_coins,
 )
+from src.devices import BoardContext
+from src.plugins.geometry_conformance import assert_board_conformance
+
+NOTE_ARRAY_2_WIDE = BoardContext("note_array", rows=3, cols=30)
+NOTE_ARRAY_TALL = BoardContext("note_array", rows=24, cols=15)
 
 
 MANIFEST = {
@@ -39,6 +46,16 @@ THREE_COINS = {
     "bitcoin": {"usd": 77679, "usd_24h_change": 0.6084841503114448},
     "ethereum": {"usd": 2512.67, "usd_24h_change": -0.27796600699265583},
     "solana": {"usd": 84.1, "usd_24h_change": 2.13},
+}
+
+# Enough distinct coin ids to fill MAX_COINS exactly, so tests can prove the
+# tallest board (24 rows, 23 usable after the header) is actually reachable
+# rather than plateauing at the old fixed cap of 10.
+ALL_COIN_IDS = ["bitcoin", "ethereum", "solana"] + [f"altcoin{i}" for i in range(MAX_COINS - 3)]
+assert len(ALL_COIN_IDS) == MAX_COINS
+MANY_COINS_PAYLOAD = {
+    coin_id: {"usd": 100 + i, "usd_24h_change": 1.0 if i % 2 == 0 else -1.0}
+    for i, coin_id in enumerate(ALL_COIN_IDS)
 }
 
 
@@ -267,14 +284,21 @@ class TestValidateConfig:
         errors = plugin.validate_config({"coins": ""})
         assert any("At least one coin" in e for e in errors)
 
-    def test_rejects_more_than_ten_coins(self, plugin):
-        coins = ",".join(f"coin{i}" for i in range(11))
+    def test_rejects_more_than_max_coins(self, plugin):
+        coins = ",".join(f"coin{i}" for i in range(MAX_COINS + 1))
         errors = plugin.validate_config({"coins": coins})
-        assert any("Maximum 10" in e for e in errors)
+        assert any(f"Maximum {MAX_COINS}" in e for e in errors)
 
-    def test_accepts_exactly_ten_coins(self, plugin):
-        coins = ",".join(f"coin{i}" for i in range(10))
+    def test_accepts_exactly_max_coins(self, plugin):
+        coins = ",".join(f"coin{i}" for i in range(MAX_COINS))
         assert plugin.validate_config({"coins": coins}) == []
+
+    def test_max_coins_covers_the_tallest_board(self):
+        # The tallest board (an 8-tall note array) has 24 rows, one of which
+        # is always the header -- so the configurable cap must be at least
+        # 23 or a user on the biggest board can never fill it regardless of
+        # configuration (F5 in the audit).
+        assert MAX_COINS >= 23
 
     def test_rejects_bad_currency(self, plugin):
         assert plugin.validate_config({"coins": "bitcoin", "currency": "dollars"})
@@ -346,6 +370,110 @@ class TestManifestMetadata:
 
     def test_previews_fit_boards(self, manifest):
         for preview in manifest["previews"]:
-            width = 22 if preview["device_type"] == "flagship" else 15
+            device_type = preview["device_type"]
+            if device_type == "flagship":
+                width, height = 22, 6
+            elif device_type == "note":
+                width, height = 15, 3
+            else:
+                width = preview["notes_wide"] * 15
+                height = preview["notes_tall"] * 3
+            assert len(preview["rows"]) <= height
             for row in preview["rows"]:
                 assert len(row) <= width
+
+
+class TestFormatRow:
+    """Unit tests for the arithmetic that replaced the old ``if cols >= 22``
+    two-branch layout (F5 in the board-geometry audit)."""
+
+    def test_note_width_is_symbol_and_price_only(self):
+        row = format_row("BTC", "Bitcoin", "77,679", "+0.6", cols=15)
+        assert row == "BTC      77,679"
+        assert len(row) == 15
+
+    def test_flagship_width_matches_the_original_fixed_format(self):
+        row = format_row("BTC", "Bitcoin", "77,679", "+0.6", cols=22)
+        assert row == "BTC      77,679  +0.6%"
+
+    def test_wide_board_grows_the_label_into_the_full_name(self):
+        row = format_row("BTC", "Bitcoin", "77,679", "+0.6", cols=30)
+        assert row == "Bitcoin          77,679  +0.6%"
+        assert len(row) == 30
+
+    def test_row_width_always_matches_the_board_exactly(self):
+        # The old bug rendered every cols >= 22 board identically at 22
+        # tiles. If that regresses, this fails immediately at cols=45+.
+        for cols in (15, 22, 30, 45, 60, 75, 90, 105, 120):
+            assert len(format_row("BTC", "Bitcoin", "77,679", "+0.6", cols)) == cols
+
+
+class TestGeometryScaling:
+    """Direct pins for the two F5 bugs: the fixed-22-tile row, and the coin
+    count cap that ignored board.rows. TestBoardConformance below covers the
+    same ground generically; these pin the exact broken behavior."""
+
+    @patch("plugins.crypto.requests.get")
+    def test_formatted_row_uses_the_full_board_width(self, mock_get, plugin):
+        mock_get.return_value = mock_response(THREE_COINS)
+
+        result = plugin.get_data(NOTE_ARRAY_2_WIDE)
+
+        btc = result.data["coins"][0]
+        assert len(btc["formatted"]) == 30
+        assert btc["formatted"].startswith("Bitcoin")
+        assert btc["formatted"].endswith("+0.6%")
+
+    @patch("plugins.crypto.requests.get")
+    def test_coin_count_is_not_capped_below_the_tallest_board(self, mock_get, plugin):
+        mock_get.return_value = mock_response(MANY_COINS_PAYLOAD)
+        plugin._config["coins"] = ",".join(ALL_COIN_IDS)
+
+        result = plugin.get_data(NOTE_ARRAY_TALL)
+
+        # A 24-row board has 23 usable data rows; the old MAX_COINS=10 cap
+        # meant a 23-coin config could never fill more than 10 of them.
+        # Hardcoded (not "== MAX_COINS") so this pins the actual number and
+        # can't silently pass if MAX_COINS itself regresses downward.
+        assert result.data["count"] == 23
+
+    @patch("plugins.crypto.requests.get")
+    def test_get_formatted_display_fills_a_tall_note_array(self, mock_get, plugin):
+        mock_get.return_value = mock_response(MANY_COINS_PAYLOAD)
+        plugin._config["coins"] = ",".join(ALL_COIN_IDS)
+
+        with plugin._bound_board(NOTE_ARRAY_TALL):
+            lines = plugin.get_formatted_display()
+
+        assert len(lines) == 24
+        assert all(line.strip() for line in lines)
+
+
+class TestBoardConformance:
+    """Shared conformance suite: the plugin must render on every board shape
+    FiestaBoard supports (Flagship, Note, and every note_array size).
+
+    strict_growth=True: crypto renders a price list, so with more coins
+    configured than any board can show, a taller board must show strictly
+    more coins than a shorter, already-full one.
+    """
+
+    def test_renders_on_every_board_shape(self, monkeypatch):
+        monkeypatch.setattr(
+            "plugins.crypto.requests.get",
+            lambda *args, **kwargs: mock_response(MANY_COINS_PAYLOAD),
+        )
+
+        def make_plugin():
+            p = CryptoPlugin(MANIFEST)
+            p._config = {"coins": ",".join(ALL_COIN_IDS), "currency": "usd"}
+            return p
+
+        real_manifest = json.loads((Path(__file__).parent.parent / "manifest.json").read_text())
+
+        assert_board_conformance(
+            make_plugin,
+            manifest=real_manifest,
+            strict_growth=True,
+            require_note_array_preview=True,
+        )

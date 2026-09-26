@@ -6,7 +6,7 @@ Display live cryptocurrency prices and 24-hour changes from the [CoinGecko](http
 
 ## Overview
 
-The Crypto Prices plugin fetches current prices and 24h percentage changes for up to 10 coins from CoinGecko's free public API and displays them on your board. No API key is required.
+The Crypto Prices plugin fetches current prices and 24h percentage changes for up to 23 coins from CoinGecko's free public API and displays them on your board. No API key is required. The default display reflows to fit any board FiestaBoard supports: a Note shows symbol and price, a Flagship adds the 24h change, and a note array panel widens the label into the coin's full name and shows more coins the taller it is.
 
 ![Crypto Prices Display](./docs/board-display.png)
 
@@ -28,7 +28,7 @@ SOL       84.10  +2.1%
 {{crypto.price}}         # Formatted price (e.g. "77,679")
 {{crypto.change_24h}}    # Signed 24h change, no % sign (e.g. "+0.6")
 {{crypto.change_sign}}   # "+" or "-"
-{{crypto.formatted}}     # Pre-formatted 22-char line
+{{crypto.formatted}}     # Pre-formatted line, width scales with the board
 {{crypto.count}}         # Number of coins with price data
 ```
 
@@ -84,7 +84,7 @@ Coins appear in the order you configured them; ids CoinGecko doesn't recognise a
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | enabled | boolean | false | Enable/disable the plugin |
-| coins | string | "bitcoin,ethereum,solana" | Comma-separated CoinGecko coin ids (max 10) |
+| coins | string | "bitcoin,ethereum,solana" | Comma-separated CoinGecko coin ids (max 23) |
 | currency | string | "usd" | 3-letter quote currency (usd, eur, gbp, ...) |
 | api_key | string | - | Optional CoinGecko demo API key |
 | refresh_seconds | integer | 300 | Update interval (minimum 60) |
